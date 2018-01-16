@@ -1,0 +1,6 @@
+{
+  "name": "mediaurl",
+  "srcdoc": "./app.html",
+  "id": "mediaurl",
+  "fieldTypes": ["Symbol"] 
+}

@@ -1,0 +1,129 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <title>mediaurl</title>
+
+    <!--
+    Include styles from the Contentful app.
+    See http://contentful.github.io/ui-extensions-sdk/styleguide for information on
+    how to include and apply these styles.
+     -->
+    <link rel="stylesheet" href="https://contentful.github.io/ui-extensions-sdk/cf-extension.css">
+    <style>
+     body { margin: 0; }
+     #entries { margin-top: 1em; }
+     #entries-list { margin-top: 1em; }
+     #rating { margin-right: 1em; }
+    </style>
+
+    <!--
+    Load the Extensions API that is used to communicate with the containing app.
+    -->
+    <script src="https://contentful.github.io/ui-extensions-sdk/cf-extension-api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.js"></script>
+  </head>
+  <body>
+  <span id="mediaurl"></span>
+    <script>
+
+    /* global $ */
+    const cfExt = window.contentfulExtension || window.contentfulWidget
+
+    cfExt.init((api) => {
+
+      // Whenever the size of this document changes we adjust the size of
+      // the IFrame in the Contentful App.
+      api.window.startAutoResizer();
+      //do_media_urls();
+      var entry = api.entry;
+      var contentType = api.contentType;
+      var contentTypeFields = contentType.fields;
+      var space = api.space;
+      var version = entry.getSys().version;
+
+      entry.onSysChanged(function(){
+        if (version < entry.getSys().version){
+          version = entry.getSys().version;
+          do_media_urls();
+        }
+      });
+
+      do_media_urls();
+
+      function do_media_urls(){
+        $('#mediaurl').html(" ");
+        var contentType = api.contentType;
+        var contentTypeFields = contentType.fields;
+        var media_fields = [];
+        var j = 0;
+        var html;
+        var entry = api.entry;
+        var space = api.space;
+        var locales = api.locales;
+        var availableLocales = locales.available;
+
+        for (let i = 0; i < contentTypeFields.length; i++){
+          if (contentTypeFields[i].type == 'Link' && contentTypeFields[i].linkType == 'Asset'){
+            //single asset
+            var name = contentTypeFields[i].name;
+            var id = contentTypeFields[i].id;
+            var value = entry.fields[id].getValue();
+            if (value){
+              media_fields[j] = {"id":value.sys.id,"index":null,"type":"single","fieldname":name};
+              j++;
+            }
+          } else if (contentTypeFields[i].type == 'Array' && contentTypeFields[i].items.linkType == 'Asset'  && contentTypeFields[i].items.type == 'Link'){
+              //many assets
+              var name = contentTypeFields[i].name;
+              var id = contentTypeFields[i].id;
+              var value = entry.fields[id].getValue();
+              if (value){
+                for (var k = 0; k < value.length; k++){
+                  media_fields[j] = {"id":value[k].sys.id,"index":k,"type":"multiple","fieldname":name};;
+                  j++;
+                }
+              }
+            }
+          }
+
+          for (var i = 0; i < media_fields.length; i++){
+            (function(i) {
+              if (i == 0){
+                $('#mediaurl').html(" ");
+              }
+            space.getAsset(media_fields[i].id).then(function(asset){
+
+              if (media_fields[i].type == "multiple"){
+                index_html = "["+media_fields[i].index+"]";
+              } else {
+                index_html = "";
+              }
+              for (var l = 0; l < availableLocales.length; l++){
+                if (asset.fields.file[availableLocales[l]]){
+                  var img_html = '<img class="thumbnail" src="'+asset.fields.file[availableLocales[l]].url+'?w=100&amp;h=100&amp;fit=thumb" style="width: 100px; height: 100px;">';
+                  let title_html = '<div style="font-size: 90%; display: flex; margin-top: 0.64em;"><div role="status">';
+                  title_html+= media_fields[i].fieldname + index_html + '[' + availableLocales[l]+']';
+                  title_html+= '</div><div data-ref="character-constraints" style="margin-left: auto;">'+asset.fields.title[availableLocales[l]]+'</div></div>';
+
+                  let input_html = "<input class=\"cf-form-input click-to-select\" type=\"text\" readonly value=\"https:" + asset.fields.file[availableLocales[l]].url + "\">";
+
+                  $('#mediaurl').append(input_html);
+                  $('#mediaurl').append(title_html);
+                  $('#mediaurl').append("<br />");
+                  $('#mediaurl').append(img_html);
+                  $('#mediaurl').append("<br />");
+                  $('#mediaurl').append("<br />");
+                  $('.click-to-select').on('click',function(e){
+                    this.select();
+                  });
+                }
+              }
+              $('#mediaurl').append("<br />");
+            });
+          })(i);
+        }
+      }
+    })
+    </script>
+  </body>
+</html>
